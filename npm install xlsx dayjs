@@ -1,0 +1,55 @@
+const XLSX = require("xlsx");
+const fs = require("fs");
+const path = require("path");
+
+// ======== CONFIG ========
+// Change this path to your Excel file
+const inputFilePath = path.resolve("./Book1.xlsx");
+const outputFilePath = path.resolve("./cleaned_emails.xlsx");
+// =========================
+
+function cleanEmails() {
+  if (!fs.existsSync(inputFilePath)) {
+    console.error(`❌ File not found: ${inputFilePath}`);
+    process.exit(1);
+  }
+
+  console.log("📖 Reading Excel file...");
+  const workbook = XLSX.readFile(inputFilePath);
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const data = XLSX.utils.sheet_to_json(sheet);
+
+  console.log(`✅ Loaded ${data.length} rows.`);
+
+  // Collect all possible email-like values
+  const emailSet = new Set();
+
+  for (const row of data) {
+    for (const key in row) {
+      const cell = String(row[key] || "").trim();
+      if (
+        cell.match(
+          /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+        )
+      ) {
+        emailSet.add(cell.toLowerCase());
+      }
+    }
+  }
+
+  const uniqueEmails = Array.from(emailSet);
+
+  console.log(`📧 Found ${uniqueEmails.length} unique emails.`);
+
+  // Write to new Excel
+  const resultData = uniqueEmails.map((email) => ({ Email: email }));
+  const newSheet = XLSX.utils.json_to_sheet(resultData);
+  const newWorkbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(newWorkbook, newSheet, "Emails Only");
+  XLSX.writeFile(newWorkbook, outputFilePath);
+
+  console.log(`✅ Clean email list saved to: ${outputFilePath}`);
+}
+
+cleanEmails();
